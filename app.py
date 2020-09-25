@@ -1,17 +1,11 @@
 import torch
-from transformers import BertTokenizer, BertForQuestionAnswering
+from transformers import DistilBertTokenizer, DistilBertForQuestionAnswering
 from flask import Flask, request, jsonify
 
-model = BertForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad')
-tokenizer = BertTokenizer.from_pretrained('distilbert-base-cased-distilled-squad')
-
-import sys
-
-sys.getsizeof(model)
-sys.getsizeof(tokenizer)
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print('Using device: {}'.format(device))
+tokenizer = DistilBertTokenizer.from_pretrained(
+    'distilbert-base-uncased', return_token_type_ids=True)
+model = DistilBertForQuestionAnswering.from_pretrained(
+    'distilbert-base-uncased-distilled-squad')
 
 app = Flask(__name__)
 
@@ -20,24 +14,21 @@ def bert_qa(question, document):
     the answer), and identifies the words within the `document` that are
     the answer.
     '''
-    input_ids = tokenizer.encode(question, document)
-    sep_index = input_ids.index(tokenizer.sep_token_id)
-    num_seg_a = sep_index + 1
-    num_seg_b = len(input_ids) - num_seg_a
-    segment_ids = [0]*num_seg_a + [1]*num_seg_b
-    assert len(segment_ids) == len(input_ids)
+    encoding = tokenizer.encode_plus(question, document)
+    input_ids, attention_mask = encoding["input_ids"], encoding["attention_mask"]
+
     start_scores, end_scores = model(torch.tensor([input_ids]),
-                                          token_type_ids=torch.tensor([segment_ids]))
-    answer_start = torch.argmax(start_scores)
-    answer_end = torch.argmax(end_scores)
+                                      attention_mask=torch.tensor([attention_mask]))
     confidence = float(max(torch.max(start_scores), torch.max(end_scores)))
-    tokens = tokenizer.convert_ids_to_tokens(input_ids)
-    answer = tokens[answer_start]
-    for i in range(answer_start + 1, answer_end + 1):
-        if tokens[i][0:2] == '##':
-            answer += tokens[i][2:]
+    ans_tokens = input_ids[torch.argmax(start_scores) : torch.argmax(end_scores)+1]
+    answer_tokens = tokenizer.convert_ids_to_tokens(ans_tokens,
+                                                    skip_special_tokens=True)
+    answer = answer_tokens[0]
+    for token in answer_tokens[1:]:
+        if token[0:2] == '##':
+            answer += token[2:]
         else:
-            answer += ' ' + tokens[i]
+            answer += ' ' + token
     return answer, confidence
 
 @app.route('/answer_question')
@@ -59,4 +50,4 @@ def answer_question():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5002)
