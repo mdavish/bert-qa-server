@@ -31,7 +31,7 @@ def bert_qa(question, document):
             answer += ' ' + token
     return answer, confidence
 
-@app.route('/answer_question')
+@app.route('/')
 def answer_question():
     payload = request.json
     question = payload['question']
@@ -47,7 +47,3 @@ def answer_question():
         }
         full_response.append(response)
     return jsonify(full_response)
-
-
-if __name__ == '__main__':
-    app.run()
