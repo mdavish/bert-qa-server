@@ -2,8 +2,14 @@ import torch
 from transformers import BertTokenizer, BertForQuestionAnswering
 from flask import Flask, request, jsonify
 
-model = BertForQuestionAnswering.from_pretrained('bert-large-uncased-whole-word-masking-finetuned-squad')
-tokenizer = BertTokenizer.from_pretrained('bert-large-uncased-whole-word-masking-finetuned-squad')
+model = BertForQuestionAnswering.from_pretrained('distilbert-base-cased-distilled-squad')
+tokenizer = BertTokenizer.from_pretrained('distilbert-base-cased-distilled-squad')
+
+import sys
+
+sys.getsizeof(model)
+sys.getsizeof(tokenizer)
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print('Using device: {}'.format(device))
 
