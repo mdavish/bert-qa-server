@@ -31,7 +31,7 @@ def bert_qa(question, document):
             answer += ' ' + token
     return answer, confidence
 
-@app.route('/')
+@app.route('/', methods=['GET','POST'])
 def answer_question():
     payload = request.json
     question = payload['question']
