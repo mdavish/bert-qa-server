@@ -1,44 +1,20 @@
-import torch
-from transformers import DistilBertTokenizer, DistilBertForQuestionAnswering
+from bert_qa import BERTQA
+from utils import boilerpipe_from_url
 from flask import Flask, request, jsonify
 
-tokenizer = DistilBertTokenizer.from_pretrained(
-    'distilbert-base-uncased', return_token_type_ids=True)
-model = DistilBertForQuestionAnswering.from_pretrained(
-    'distilbert-base-uncased-distilled-squad')
 
 app = Flask(__name__)
+bertqa = BERTQA()
 
-def bert_qa(question, document):
-    '''Takes a `question` string and an `document` string (which contains
-    the answer), and identifies the words within the `document` that are
-    the answer.
-    '''
-    encoding = tokenizer.encode_plus(question, document)
-    input_ids, attention_mask = encoding["input_ids"], encoding["attention_mask"]
 
-    start_scores, end_scores = model(torch.tensor([input_ids]),
-                                      attention_mask=torch.tensor([attention_mask]))
-    confidence = float(max(torch.max(start_scores), torch.max(end_scores)))
-    ans_tokens = input_ids[torch.argmax(start_scores) : torch.argmax(end_scores)+1]
-    answer_tokens = tokenizer.convert_ids_to_tokens(ans_tokens,
-                                                    skip_special_tokens=True)
-    answer = answer_tokens[0]
-    for token in answer_tokens[1:]:
-        if token[0:2] == '##':
-            answer += token[2:]
-        else:
-            answer += ' ' + token
-    return answer, confidence
-
-@app.route('/', methods=['GET','POST'])
-def answer_question():
+@app.route('/qa_from_documents', methods=['GET','POST'])
+def qa_from_documents():
     payload = request.json
     question = payload['question']
     documents = payload['documents']
     full_response = []
     for document in documents:
-        answer, confidence = bert_qa(question, document)
+        answer, confidence = bertqa.answer_question(question, document)
         confidence = float(confidence)
         response = {
             'document': document,
@@ -47,3 +23,14 @@ def answer_question():
         }
         full_response.append(response)
     return jsonify(full_response)
+
+
+@app.route('/qa_from_url', methods=['GET','POST'])
+def qa_from_url():
+    payload = request.json
+    question = payload['question']
+    url = payload['url']
+    bp_response = boilerpipe_from_url(url)
+    bp_content = bp_response['response']['content']
+    response = bertqa.answer_question_chunked(question, bp_content)
+    return jsonify(response)
