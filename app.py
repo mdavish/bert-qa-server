@@ -2,9 +2,11 @@ from bert_qa import BERTQA
 from dpr_reader import DPRReader
 from utils import boilerpipe_from_url
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 
 app = Flask(__name__)
+cors = CORS(app)
 bertqa = BERTQA()
 dpr_reader = DPRReader()
 device = dpr_reader.device
